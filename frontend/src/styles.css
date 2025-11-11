@@ -10,6 +10,19 @@
   gap: 8px;
 }
 
+.integration-card__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.integration-card__actions .hint {
+  max-width: 220px;
+  text-align: right;
+}
+
 :root {
   color-scheme: light dark;
   font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;

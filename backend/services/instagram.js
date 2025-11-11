@@ -7,6 +7,7 @@ const dotenv = require('dotenv');
 
 dotenv.config({ path: path.resolve(__dirname, '..', '.env') });
 
+const { uploadToCloudinary, ensureCloudinaryConfig } = require('./uploadHost');
 const { getStoredInstagramCredentials } = require('./instagramAuth');
 
 const { FB_PAGE_ACCESS_TOKEN, IG_USER_ID } = process.env;
@@ -52,14 +53,27 @@ function resolveInstagramConfig() {
  */
 
 async function uploadToTemporaryHost(filePath) {
-  // Placeholder: faça upload para seu serviço (S3/Cloudinary/etc.) e retorne a URL pública.
-  // Aqui retornamos null para indicar que é necessário implementar antes.
-  console.info('[Instagram] Implementar upload para host público (ex.: Cloudinary).');
-  filePath; // evitar lint unused
+  try {
+    if (ensureCloudinaryConfig()) {
+      const result = await uploadToCloudinary(filePath);
+      if (result?.url) {
+        return {
+          url: result.url,
+          meta: result,
+        };
+      }
+    }
+  } catch (error) {
+    console.error('[Instagram] Falha ao enviar arquivo para Cloudinary:', error.message);
+    throw new Error(
+      `Falha ao enviar arquivo para o host público (Cloudinary): ${error.response?.data?.error?.message || error.message}`,
+    );
+  }
+
   return null;
 }
 
-async function publishToInstagram({ filePath, caption }) {
+async function publishToInstagram({ filePath, caption, mimeType }) {
   const { pageAccessToken, igUserId } = resolveInstagramConfig();
 
   if (!pageAccessToken || !igUserId) {
@@ -77,21 +91,31 @@ async function publishToInstagram({ filePath, caption }) {
     throw new Error('Arquivo de mídia não encontrado para upload no Instagram.');
   }
 
-  const mediaUrl = await uploadToTemporaryHost(absoluteFile);
+  const hostResult = await uploadToTemporaryHost(absoluteFile);
 
-  if (!mediaUrl) {
+  if (!hostResult?.url) {
     return {
       ok: false,
       error:
-        'É necessário implementar upload para URL pública antes de publicar no Instagram (ex.: Cloudinary).',
+        'Não foi possível subir o arquivo para URL pública. Configure Cloudinary ou adapte `uploadToTemporaryHost`.',
     };
   }
+
+  const isVideo =
+    typeof mimeType === 'string'
+      ? mimeType.startsWith('video/')
+      : hostResult?.meta?.resourceType === 'video';
 
   try {
     const form = new FormData();
     form.append('caption', caption || '');
     form.append('access_token', pageAccessToken);
-    form.append('image_url', mediaUrl);
+    if (isVideo) {
+      form.append('media_type', 'VIDEO');
+      form.append('video_url', hostResult.url);
+    } else {
+      form.append('image_url', hostResult.url);
+    }
 
     const createResp = await axios.post(
       `https://graph.facebook.com/v19.0/${igUserId}/media`,
@@ -122,6 +146,7 @@ async function publishToInstagram({ filePath, caption }) {
     return {
       ok: false,
       error: error.response?.data || error.message,
+      host: hostResult,
     };
   }
 }

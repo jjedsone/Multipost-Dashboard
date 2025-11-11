@@ -25,6 +25,16 @@ function PostForm() {
     updatedAt: null,
   });
   const [isCheckingInstagram, setIsCheckingInstagram] = useState(false);
+  const [youtubeStatus, setYoutubeStatus] = useState({
+    connected: false,
+    checkedAt: null,
+  });
+  const [tiktokStatus, setTikTokStatus] = useState({
+    connected: false,
+    checkedAt: null,
+  });
+  const [isCheckingYouTube, setIsCheckingYouTube] = useState(false);
+  const [isCheckingTikTok, setIsCheckingTikTok] = useState(false);
 
   const instagramPollRef = useRef(null);
   const isUnmountedRef = useRef(false);
@@ -123,6 +133,56 @@ function PostForm() {
     }
   };
 
+  const fetchYouTubeStatus = async () => {
+    try {
+      setIsCheckingYouTube(true);
+      const { data } = await axios.get(`${API_BASE_URL}/status/youtube`);
+      if (!isUnmountedRef.current) {
+        setYoutubeStatus({
+          ...data,
+          checkedAt: data?.checkedAt || new Date().toISOString(),
+        });
+      }
+    } catch (error) {
+      if (!isUnmountedRef.current) {
+        setYoutubeStatus({
+          connected: false,
+          error: error.response?.data?.error || error.message,
+          checkedAt: new Date().toISOString(),
+        });
+      }
+    } finally {
+      if (!isUnmountedRef.current) {
+        setIsCheckingYouTube(false);
+      }
+    }
+  };
+
+  const fetchTikTokStatus = async () => {
+    try {
+      setIsCheckingTikTok(true);
+      const { data } = await axios.get(`${API_BASE_URL}/status/tiktok`);
+      if (!isUnmountedRef.current) {
+        setTikTokStatus({
+          ...data,
+          checkedAt: data?.checkedAt || new Date().toISOString(),
+        });
+      }
+    } catch (error) {
+      if (!isUnmountedRef.current) {
+        setTikTokStatus({
+          connected: false,
+          error: error.response?.data?.error || error.message,
+          checkedAt: new Date().toISOString(),
+        });
+      }
+    } finally {
+      if (!isUnmountedRef.current) {
+        setIsCheckingTikTok(false);
+      }
+    }
+  };
+
   const connectInstagram = async () => {
     try {
       setStatusMessage('Abrindo login do Instagram (Meta)...');
@@ -182,6 +242,8 @@ function PostForm() {
 
   useEffect(() => {
     fetchInstagramStatus();
+    fetchYouTubeStatus();
+    fetchTikTokStatus();
 
     return () => {
       isUnmountedRef.current = true;
@@ -205,6 +267,19 @@ function PostForm() {
     return 'Não conectado';
   };
 
+  const buildStatusMessage = (status, fallback = 'Não conectado') => {
+    if (status.connected) {
+      return 'Conectado';
+    }
+    if (Array.isArray(status.missing) && status.missing.length) {
+      return `Configure ${status.missing.join(', ')}`;
+    }
+    if (status.error) {
+      return status.error;
+    }
+    return fallback;
+  };
+
   const formatTimestamp = (timestamp) => {
     if (!timestamp) return null;
     try {
@@ -222,6 +297,30 @@ function PostForm() {
       <section className="integration-card">
         <div className="integration-card__info">
           <div className="integration-card__header">
+            <span className={`status-dot ${youtubeStatus.connected ? 'online' : 'offline'}`} />
+            <h3>YouTube</h3>
+          </div>
+          <p>{buildStatusMessage(youtubeStatus, 'Configure as credenciais no backend/.env.')}</p>
+          {youtubeStatus.checkedAt && (
+            <small className="hint">Verificado em {formatTimestamp(youtubeStatus.checkedAt)}</small>
+          )}
+        </div>
+        <div className="integration-card__actions">
+          <button
+            type="button"
+            className="ghost"
+            onClick={fetchYouTubeStatus}
+            disabled={isCheckingYouTube || isSubmitting}
+          >
+            {isCheckingYouTube ? 'Verificando...' : 'Recarregar status'}
+          </button>
+          <small className="hint">Execute node oauth_helpers.js para renovar o token.</small>
+        </div>
+      </section>
+
+      <section className="integration-card">
+        <div className="integration-card__info">
+          <div className="integration-card__header">
             <span className={`status-dot ${instagramStatus.connected ? 'online' : 'offline'}`} />
             <h3>Instagram</h3>
           </div>
@@ -230,14 +329,45 @@ function PostForm() {
             <small className="hint">Atualizado em {formatTimestamp(instagramStatus.updatedAt)}</small>
           )}
         </div>
-        <button
-          type="button"
-          className="ghost"
-          onClick={connectInstagram}
-          disabled={isCheckingInstagram || isSubmitting}
-        >
-          {instagramStatus.connected ? 'Reconectar Instagram' : 'Conectar Instagram'}
-        </button>
+        <div className="integration-card__actions">
+          <button
+            type="button"
+            className="ghost"
+            onClick={connectInstagram}
+            disabled={isCheckingInstagram || isSubmitting}
+          >
+            {isCheckingInstagram
+              ? 'Verificando...'
+              : instagramStatus.connected
+                ? 'Reconectar Instagram'
+                : 'Conectar Instagram'}
+          </button>
+          <small className="hint">Fluxo baseado no login via Facebook.</small>
+        </div>
+      </section>
+
+      <section className="integration-card">
+        <div className="integration-card__info">
+          <div className="integration-card__header">
+            <span className={`status-dot ${tiktokStatus.connected ? 'online' : 'offline'}`} />
+            <h3>TikTok</h3>
+          </div>
+          <p>{buildStatusMessage(tiktokStatus, 'Informe client key, secret e refresh token.')}</p>
+          {tiktokStatus.checkedAt && (
+            <small className="hint">Verificado em {formatTimestamp(tiktokStatus.checkedAt)}</small>
+          )}
+        </div>
+        <div className="integration-card__actions">
+          <button
+            type="button"
+            className="ghost"
+            onClick={fetchTikTokStatus}
+            disabled={isCheckingTikTok || isSubmitting}
+          >
+            {isCheckingTikTok ? 'Verificando...' : 'Recarregar status'}
+          </button>
+          <small className="hint">Atualize o refresh token pelo painel de developers do TikTok.</small>
+        </div>
       </section>
 
       <fieldset className="field-group">

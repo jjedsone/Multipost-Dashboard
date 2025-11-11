@@ -15,6 +15,7 @@ pnpm-debug.log*
 # Diretórios temporários
 backend/tmp/
 backend/tokens/
+backend/storage/*.json
 
 # Build / cache
 dist/

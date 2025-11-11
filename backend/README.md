@@ -43,6 +43,9 @@ npm start
 Endpoints:
 
 - `GET /health`: retorna status simples para teste.
+- `GET /status/youtube`: verifica se as credenciais do YouTube estão ativas.
+- `GET /status/tiktok`: verifica se as credenciais do TikTok estão válidas.
+- `GET /history`: lista o histórico local das últimas postagens.
 - `POST /post`: recebe `multipart/form-data` com os campos:
   - `media` (arquivo, obrigatório)
   - `caption` (texto opcional)

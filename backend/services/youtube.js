@@ -86,7 +86,42 @@ async function publishToYouTube({ filePath, caption, tags, title }) {
   };
 }
 
+async function getYouTubeStatus() {
+  const checkedAt = new Date().toISOString();
+  const missing = [];
+
+  if (!YT_CLIENT_ID) missing.push('YT_CLIENT_ID');
+  if (!YT_CLIENT_SECRET) missing.push('YT_CLIENT_SECRET');
+  if (!YT_REFRESH_TOKEN) missing.push('YT_REFRESH_TOKEN');
+
+  if (missing.length) {
+    return {
+      connected: false,
+      missing,
+      checkedAt,
+    };
+  }
+
+  try {
+    const accessTokenResponse = await oauth2Client.getAccessToken();
+    const hasAccessToken = Boolean(accessTokenResponse?.token || accessTokenResponse);
+
+    return {
+      connected: true,
+      checkedAt,
+      hasAccessToken,
+    };
+  } catch (error) {
+    return {
+      connected: false,
+      checkedAt,
+      error: error.message,
+    };
+  }
+}
+
 module.exports = {
   publishToYouTube,
+  getYouTubeStatus,
 };
 

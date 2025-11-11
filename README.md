@@ -14,6 +14,7 @@ Painel local (React + Node.js) para publicar conteúdo simultaneamente em YouTub
 - **Instagram OAuth** integrado: conecte sua página via popup e armazene tokens localmente.
 - **TikTok** com fluxo estruturado e pontos de extensão para upload oficial.
 - Painel React rápido (Vite) com formulário único para mídia, legenda, tags e seleção de plataformas.
+- Cartões com status em tempo real de YouTube, Instagram e TikTok (checagem/atualização direto do painel).
 - Lint configurado (ESLint + Prettier) tanto no backend quanto no frontend.
 
 ## Estrutura do projeto

@@ -7,14 +7,15 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const multer = require('multer');
 
-const { publishToYouTube } = require('./services/youtube');
+const { publishToYouTube, getYouTubeStatus } = require('./services/youtube');
 const { publishToInstagram } = require('./services/instagram');
-const { publishToTikTok } = require('./services/tiktok');
+const { publishToTikTok, getTikTokStatus } = require('./services/tiktok');
 const {
   getInstagramAuthUrl,
   handleInstagramCallback,
   getStoredInstagramCredentials,
 } = require('./services/instagramAuth');
+const { logPost, readHistory } = require('./storage/historyStore');
 
 dotenv.config();
 
@@ -28,6 +29,7 @@ if (!fs.existsSync(TMP_DIR)) {
 }
 
 app.use(cors());
+app.use(express.json());
 
 const upload = multer({
   dest: TMP_DIR,
@@ -40,6 +42,36 @@ const unlinkAsync = util.promisify(fs.unlink);
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+app.get('/history', async (req, res) => {
+  try {
+    const history = await readHistory();
+    res.json({ ok: true, history });
+  } catch (error) {
+    console.error('[History] Erro ao ler histórico:', error);
+    res.status(500).json({ error: 'Não foi possível carregar o histórico.' });
+  }
+});
+
+app.get('/status/youtube', async (req, res) => {
+  try {
+    const status = await getYouTubeStatus();
+    res.json(status);
+  } catch (error) {
+    console.error('[YouTube] Status error:', error);
+    res.status(500).json({ connected: false, error: 'Falha ao verificar status do YouTube.' });
+  }
+});
+
+app.get('/status/tiktok', async (req, res) => {
+  try {
+    const status = await getTikTokStatus();
+    res.json(status);
+  } catch (error) {
+    console.error('[TikTok] Status error:', error);
+    res.status(500).json({ connected: false, error: 'Falha ao verificar status do TikTok.' });
+  }
 });
 
 app.get('/auth/instagram/url', (req, res) => {
@@ -148,6 +180,7 @@ app.post('/post', upload.single('media'), async (req, res) => {
               filePath: req.file.path,
               caption,
               tags: normalizedTags,
+              mimeType: req.file.mimetype,
             });
             break;
           }
@@ -155,6 +188,7 @@ app.post('/post', upload.single('media'), async (req, res) => {
             results.tiktok = await publishToTikTok({
               filePath: req.file.path,
               caption,
+              title,
               tags: normalizedTags,
             });
             break;
@@ -164,6 +198,16 @@ app.post('/post', upload.single('media'), async (req, res) => {
         }
       }),
     );
+
+    await logPost({
+      payload: {
+        caption,
+        title,
+        tags: normalizedTags,
+        platforms,
+      },
+      results,
+    });
 
     res.json({
       ok: true,
